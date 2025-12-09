@@ -1,0 +1,1030 @@
+---
+title: "HIV fitness figures"
+format: html
+execute: 
+  message: false
+  warning: false
+  echo: false
+---
+
+```{r}
+# Load libraries
+library(phytools)
+library(tidyverse)
+library(readxl)
+library(ggtree)
+library(treeio)
+library(wavess)
+library(rstatix)
+library(ggpubr)
+library(scales)
+library(cowplot)
+
+# Set plotting theme
+theme_set(theme_classic() + 
+            theme(strip.background = element_rect(color = 'white'), 
+                  panel.border = element_rect(color = 'black', fill = NA, linewidth = 0.5), 
+                  axis.line = element_blank(),
+                  text = element_text(size = 16)))
+```
+
+
+# Methods
+
+```{r, fig.width=13, fig.height=5}
+# Function to generate one random fitness landscape (scaled 0–1)
+generate_landscape <- function(n_peaks = 5, noise = 0, dropoff_factor = 1, width_min = 0.3, width_max = 1.2, seed = NULL) {
+  # Different random seed each time
+  if(!is.null(seed)) set.seed(seed)
+  
+  x <- seq(-3, 3, length.out = 200)
+  y <- seq(-3, 3, length.out = 200)
+  grid <- expand.grid(x = x, y = y)
+  
+  centers <- matrix(runif(n_peaks * 2, -3, 3), ncol = 2)
+  heights <- runif(n_peaks, 0.5, 2)
+  widths <- runif(n_peaks, width_min, width_max)
+  
+  z <- numeric(nrow(grid))
+  for (i in 1:n_peaks) {
+    cx <- centers[i, 1]
+    cy <- centers[i, 2]
+    z <- z + heights[i] * exp(-dropoff_factor * ((grid$x - cx)^2 + (grid$y - cy)^2) / (2 * widths[i]^2))
+  }
+  
+  # Add optional noise
+  z <- z + noise * rnorm(length(z))
+  
+  # Rescale z values to the range [0, 1]
+  z <- (z - min(z)) / (max(z) - min(z))
+  
+  grid$z <- z
+  return(grid)
+}
+
+# Plot function
+plot_landscape <- function(grid) {
+  ggplot(grid, aes(x = x, y = y, fill = z)) +
+    geom_tile() +
+    scale_fill_viridis_c(option = "plasma", limits = c(0,1)) + 
+    coord_fixed(ylim = c(-3, 3.6), xlim = c(-3.3, 3.3)) +
+    theme_void() +
+    labs(fill = 'Fitness')
+}
+
+# Generate three distinct landscapes
+grid1 <- generate_landscape(n_peaks = 3, seed = 4, dropoff_factor = 10, width_min = 1, width_max = 3) %>% # conserved
+  mutate(z = 1-z) # opposite
+grid2 <- generate_landscape(n_peaks = 12, seed = 2) # replicative
+grid3 <- generate_landscape(n_peaks = 9, seed = 17) # immune 1 # seed 3
+grid4 <- generate_landscape(n_peaks = 15, dropoff_factor = 2, seed = 13) # immune 2 #5 # seed 12
+
+grid_all <- grid1 %>% rename(cons=z) %>% 
+  full_join(grid2 %>% rename(rep=z)) %>% 
+  full_join(grid3 %>% rename(imm1=z)) %>% 
+  full_join(grid4 %>% rename(imm2=z)) %>% 
+  mutate(tot1=cons*rep*imm1,
+         tot2=cons*rep*imm2)
+
+text_col <- 'black'
+
+# Create and combine plots
+p1 <- plot_landscape(grid1) + geom_text(x = -3, y = 3.9, label = 'Conserved', col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) +
+    theme(legend.position = 'none')
+p2 <- plot_landscape(grid2) + geom_text(x = -3, y = 3.9, label = 'Replicative', col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) +
+    theme(legend.position = 'none')
+p3 <- plot_landscape(grid3) + geom_text(x = -3, y = 3.9, label = 'Immune 1', col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) +
+    theme(legend.position = 'none')
+p4 <- plot_landscape(grid4) + geom_text(x = -3, y = 3.9, label = 'Immune 2', col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) +
+    theme(legend.position = 'none')
+
+p5 <- plot_landscape(grid_all %>% select(x, y, z=tot1)) + 
+  geom_text(x = -3, y = 3.3, label = 'Overall fitness in environment 1', 
+            col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) + 
+    geom_point(data = tibble(x = c(-0.8, 1, -2, 2.5), 
+                                     y = c(2.3, -1.5, 2, 1.5), 
+                                     z = rep(NA,4)), 
+               aes(col = 'Yes'), fill = 'white', shape = 21, size = 3) +
+    geom_point(data = tibble(x = c(-1, 0.4, -1, 2, 0.5, 1), 
+                                     y = c(1.5, 0.4, 0, 0.8, -0.5, -2.5), 
+                                     z = rep(NA,6)), 
+               aes(col = 'No'), fill = 'black', shape = 21, size = 3) +
+    scale_color_manual(values = c('white', 'black')) +
+  labs(col = 'Virus survived to next generation')
+
+p6 <- plot_landscape(grid_all %>% select(x, y, z=tot2)) + 
+  geom_text(x = -3, y = 3.3, label = 'Overall fitness in environment 2', 
+            col = text_col, hjust = 0, vjust = 1, check_overlap = TRUE) + 
+    geom_point(data = tibble(x = c(1, -1, 0.5), 
+                                     y = c(1, 1, 0.1), 
+                                     z = rep(NA,3)), 
+               aes(col = 'Yes'), fill = 'white', shape = 21, size = 3) +
+    geom_point(data = tibble(x = c(-1.5, 0.6, -1.5, 2, -0.5, -1, 0.5), 
+                                     y = c(2, 0.2, -1, 0.5, -1, 0, 1), 
+                                     z = rep(NA,7)), 
+               aes(col = 'No'), fill = 'black', shape = 21, size = 3) +
+    scale_color_manual(values = c('white', 'black')) +
+  labs(col = 'Virus survives to next generation')
+
+
+model_fitness_lanscapes <- ggarrange(
+  ggarrange(
+    ggarrange(
+      ggarrange(p1, NULL, p2, NULL, p3, nrow = 1, widths = c(1,-0.82,1,-0.82,1)), 
+      p5 + theme(legend.position = 'none'), ncol = 1, heights = c(1,3)
+      ),
+    NULL,
+    ggarrange(
+      ggarrange(p1, NULL, p2, NULL, p4, nrow = 1, widths = c(1,-0.82,1,-0.82,1)), 
+      p6 + theme(legend.position = 'none'), ncol = 1, heights = c(1,3)
+      ),
+    nrow = 1, widths = c(1,-0.55,1)
+    ),
+  get_legend(p6 + 
+                        guides(color = guide_legend(title.position = "top", nrow = 1),
+                               fill = guide_colorbar(title.position = "top")
+                               ) +
+                        theme(legend.position = 'bottom',
+                              legend.title.align=0.5)), 
+  ncol = 1, heights = c(5,1)
+  )
+```
+
+
+```{r, toy_example, fig.width=7, fig.height=5}
+# Create toy tree
+set.seed(12)
+tr <- rtree(10, equiprob = FALSE)
+tr$edge.length[13] <- 4
+tr$edge.length[8] <- 1.5
+tr$edge.length[16] <- 1
+trunk <- rep('Trunk', length(tr$edge.length)+1)
+trunk[c(1:12, 14, 16, 17)] <- 'Not trunk'
+tiplabs <- rep(NA, Ntip(tr)+Nnode(tr))
+tiplabs[7] <- 'ref'
+
+sampling_times <- c(1,1,2,2,2,3,NA,3,3,3)
+
+tips <- rep('A', Ntip(tr))
+tips[1:2] <- 'C'
+tips[3:4] <- 'G'
+tips[9:10] <- 'T'
+names(tips) <- tr$tip.label
+anc_recon <- ace(tips, tr, type = 'discrete')
+anc_states <- apply(anc_recon$lik.anc, 1, function(x) colnames(anc_recon$lik.anc)[which.max(x)])
+edgelabs <- c(tips, anc_states)
+edgelines <- rep('', length(tr$edge.length)+1)
+edgelines[7] <- 'ref'
+
+# Plot toy tree with mutation types
+toy_example <- ggtree(tr, aes(color = trunk, linetype = edgelines)) +
+  geom_tippoint(aes(fill = c(sampling_times, rep(NA,Nnode(tr)))), size = 4, shape = 21) +
+  geom_tiplab(aes(label = tiplabs), offset = 0, vjust = -1, hjust = 0.65, show.legend = FALSE) +
+  geom_text(aes(label = edgelabs), color = 'grey20', nudge_x = 0.3, show.legend = FALSE) +
+  geom_rootedge(rootedge = 0.15, col = 'darkgrey') +
+  scale_fill_viridis_c(option = 'E', na.value = 'white', direction = -1) +
+  # scale_fill_gradient(low = 'grey', high = 'black', na.value = 'white') +
+  scale_color_manual(values = c('darkgrey', 'black')) +
+  labs(fill = 'Sampling\nyear', col = '', linetype = '') +
+  geom_segment(x = 0, y = 5.6, xend = 0.7, yend = 5.6, 
+               arrow = arrow(length=unit(0.1, "inches")),
+               col = 'purple', show.legend = FALSE) +
+  geom_text(x = 0.35, y = 6, label = 'other', check_overlap = TRUE, col = 'purple') +
+  geom_segment(x = 1.2, y = 7.5, xend = 1.9, yend = 7.5,
+               arrow = arrow(length=unit(0.1, "inches")),
+               col = 'blue', show.legend = FALSE) +
+  geom_text(x = 1.55, y = 7.9, label = 'forward', check_overlap = TRUE, col = 'blue') +
+  geom_segment(x = 3.35, y = 9.75, xend = 4.05, yend = 9.75,
+               arrow = arrow(length=unit(0.1, "inches")),
+               col = 'red', show.legend = FALSE) +
+  geom_text(x = 3.7, y = 10.15, label = 'backward', check_overlap = TRUE, col = 'red') +
+  guides(color = guide_legend(override.aes = list(linetype = 'solid', shape = NA)), linetype = 'none')
+```
+
+## Methods figure
+
+```{r, methods, fig.width=13, fig.height=5}
+# Arrange figure
+ggarrange(NULL, model_fitness_lanscapes, NULL, 
+                  ggarrange(toy_example, NULL, ncol = 1, heights = c(5,1)), 
+                  nrow = 1, widths = c(-0.3, 2,-0.3, 1), labels = c('A', '', '', 'B'))
+```
+
+
+
+# Results
+
+```{r}
+# Read in metadata
+metadat <- read_csv('data/metadata/sample_info.csv')
+
+# Use ids from original manuscripts
+id_conversion <- metadat %>% 
+  select(id = aln_ids) %>% 
+mutate(id_orig = id,
+       id = case_when(id == '10137+1+B' ~ 'P3',
+                            id == '10138+1+B' ~ 'P8',
+                            id == '105692+197+B' ~ 'F4',
+                            id == '105693+202+B' ~ 'F8',
+                            id == '105696+207+B' ~ 'F2',
+                            id == '105698+280+B' ~ 'F1',
+                            id == '10586+1+B' ~ 'P9',
+                            id == '13889+1+B' ~ 'P2',
+                            id == '820+1+B' ~ 'P1',
+                            id == '821+1+B' ~ 'P5',
+                            id == '822+1+B' ~ 'P6',
+                            id == '824+1+B' ~ 'P7',
+                            id == '825+1+B' ~ 'P11')) %>% 
+  drop_na()
+
+# Read in trees and root them
+tr_paths <- list.files('data/empirical_alns_trs/iqtree', pattern = 'treefile', full.names = TRUE)
+trees <- lapply(tr_paths, read.tree)
+names(trees) <- gsub('data/empirical_alns_trs/iqtree/|.fasta.treefile', '', tr_paths)
+
+seqs_first_timepoint <- lapply(names(trees), function(x){
+  first_timepoint <- metadat %>% 
+    filter(aln_ids == x) %>% 
+    pull(seq_in_timepoint) %>% 
+    gsub('-.*', '', .) %>% 
+    strsplit('\\+') %>% 
+    unlist()
+})
+names(seqs_first_timepoint) <- names(trees)
+
+trees_rooted <- lapply(names(trees), function(x){
+  tr_sub <- trees[[x]] %>%
+    unroot() 
+  first_timepoint <- seqs_first_timepoint[[x]]
+  og_tiplabs <- sapply(first_timepoint, function(y) tr_sub$tip.label[grepl(y, tr_sub$tip.label)])
+  tr_sub %>% reroot(node = getMRCA(tr_sub, og_tiplabs))
+})
+names(trees_rooted) <- names(trees)
+
+# Read in simulation summary statistics
+tr_summary_stats <- read_csv('data/summaries/tr_summary_stats.csv') %>% 
+  filter(file != 'file') %>% 
+  separate(file, into = c('output', 'id', 'simulations', 'file'), sep = '/') %>% 
+  separate(file, into = c('id', 'immune_cost', 'rep_cost', 'cons_cost', 'run', 'rep', 'tr', 'summary', 'stats'), sep = '_') %>% 
+  select(id, run, stat_name, stat_value, cons_cost, immune_cost, rep_cost) %>% 
+  mutate(cons_cost = gsub('conscost', '', cons_cost),
+         immune_cost = gsub('maxepi', '', immune_cost),
+         rep_cost = gsub('repcost', '', rep_cost),
+         stat_value = as.numeric(stat_value),
+         run = as.numeric(gsub('run', '', run))) %>%
+  rename(id_orig = id) %>% 
+  left_join(id_conversion)
+
+# Get founder lengths for getting threshold when calculating tree summary statistics
+founders <- read.FASTA('data/metadata/founder_seqs.fasta')
+
+names(founders) <- sapply(names(founders), function(seq_name){
+  name_info <- strsplit(seq_name, split = '\\+')[[1]]
+  name_new <- paste0(name_info[1], "+1+B")
+  start_pos <- as.numeric(name_info[2])
+  # Rename some things
+  if(name_new == "105692+1+B" & start_pos > 6000) name_new <- "105692+197+B"
+  if(name_new == "105693+1+B" & start_pos > 6000) name_new <- "105693+202+B"
+  if(name_new == "105695+1+B" & start_pos > 6000) name_new <- "105695+181+B"
+  if(name_new == "105696+1+B" & start_pos > 6000) name_new <- "105696+207+B"
+  if(name_new == "105698+1+B" & start_pos > 6000) name_new <- "105698+280+B"
+  name_new
+}) 
+
+founder_lens <- sapply(founders, length)
+
+# Get tree indices for the real data
+tr_indices_real <- lapply(names(trees_rooted), function(x){
+  tr <- trees_rooted[[x]] %>% keep.tip(trees_rooted[[x]]$tip.label[trees_rooted[[x]]$tip.label != "Consensus_Subtype_B"])
+  gens <- tr %>% 
+    as_tibble() %>% 
+    # The sequence headers have seven fields (separated by '+') and they are:
+    # patient_id+hxb2_start+hxb2_end+accession_number+subtype+days-from-infection+days-from-first-sample
+    separate(label, sep = '\\_', remove = FALSE,
+             into = c('patient_id', 'hxb2_start', 'hxb2_end', 'accession_number', 'subtype', 'days_from_infection', 'days_from_first_sample')) %>% 
+    left_join(metadat %>%
+      filter(aln_ids == x) %>%
+      mutate(timepoints = gsub('^-', 'neg', timepoints)) %>%
+      separate_rows(c(timepoints, seq_in_timepoint), sep = '-') %>%
+      separate_rows(seq_in_timepoint, sep = '\\+') %>%
+        mutate(timepoints = factor(as.numeric(gsub('neg', '-', timepoints)))) %>% 
+      rename(timepoint = timepoints, accession_number = seq_in_timepoint)) %>% 
+    filter(!is.na(timepoint)) %>%
+    select(label, timepoint) %>% 
+    deframe()
+  calc_tr_stats(tr, gens, bl_thresh = 1/founder_lens[x]) %>% 
+    mutate(id = x, .before = 1) %>% 
+    rename(stat_value_real = stat_value)
+}) %>% bind_rows() %>% suppressWarnings() %>% suppressMessages() %>% 
+  rename(id_orig = id) %>% 
+  left_join(id_conversion)
+
+# Combine stats
+all_stats <- left_join(tr_summary_stats, tr_indices_real)
+
+# Scale stats
+all_stats_scaled <- bind_rows(all_stats %>% 
+                                select(-stat_value_real), 
+                              tr_indices_real %>%
+                                mutate(run = -1) %>% rename(stat_value=stat_value_real)) %>% 
+  filter(id != '105695+181+B') %>%
+  group_by(stat_name) %>% 
+  mutate(stat_value_scaled = scale(stat_value)) %>% 
+  ungroup()
+
+# Merge scaled
+all_stats <- all_stats %>% 
+  left_join(all_stats_scaled) %>% 
+  left_join(all_stats_scaled %>% 
+      filter(run < 0) %>% 
+        select(id_orig, id, stat_name, stat_value_real_scaled = stat_value_scaled)) 
+
+# Get summary of errors
+errors_summary <- all_stats %>% 
+  filter(stat_name %in% c('diversity_slope', 'divergence_slope', 'mean_leaf_depth', 'transition_score', 'mean_bl')) %>%
+  group_by(id_orig, id, run, immune_cost, rep_cost, cons_cost) %>% 
+  summarize(err_scaled=sum(sqrt((stat_value_scaled - stat_value_real_scaled)^2), na.rm = TRUE)) %>% 
+  mutate(immune_cost = as.numeric(immune_cost),
+         rep_cost = as.numeric(rep_cost),
+         cons_cost = as.numeric(cons_cost),
+         type = case_when(immune_cost > 0 & rep_cost > 0 & cons_cost > 0 ~ 'All on',
+                          immune_cost > 0 & rep_cost > 0 ~ 'Immune & replicative',
+                          immune_cost > 0 & cons_cost > 0 ~ 'Immune & conserved',
+                          rep_cost > 0 & cons_cost > 0 ~ 'Replicative & conserved',
+                          immune_cost > 0 ~ 'Only immune',
+                          rep_cost > 0 ~ 'Only replicative',
+                          cons_cost > 0 ~ 'Only conserved',
+                          TRUE ~ 'All off'),
+         type = factor(type, levels = c("All off", "Only conserved", "Only replicative", "Replicative & conserved", 
+                                        "Only immune", "Immune & conserved", "Immune & replicative", "All on"))) 
+
+# Get best-fitting immune cost based on mean SSE
+mean_immune <- errors_summary %>% 
+  filter(type == 'All on' | type == 'Replicative & conserved') %>% 
+  group_by(id_orig, id, immune_cost) %>% 
+  summarize(mean_err = mean(err_scaled)) %>% 
+  slice_min(mean_err) %>% 
+  rename(mean_immune = immune_cost) %>% 
+  arrange(id) %>% 
+  ungroup() %>% 
+  mutate(id_cost = paste0(gsub('\\+.*', '', id), ' (', mean_immune, ')')) 
+
+# Get order for plotting
+id_costs <- mean_immune %>% 
+  mutate(id = factor(id, levels = c('P1', 'P2', 'P3', 'P5', 'P6', 'P7', 'P8', 'P9', 'P11', 'F1', 'F2', 'F4', 'F8'))) %>%
+  arrange(-mean_immune, id) %>% 
+  mutate(id_cost = paste0(id, ' (', mean_immune, ')'))
+  
+```
+
+## Phylogenies
+
+### Without reference
+
+```{r, trees_no_ref, fig.width=10, fig.height=5}
+tr_plots <- lapply(names(trees_rooted), function(id){
+  
+  tr <- drop.tip(trees_rooted[[id]], "Consensus_Subtype_B")
+  id_new <- id_costs$id_cost[id_costs$id == id_conversion$id[id_conversion$id_orig == id]]
+  if(id_new == 'P5') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization
+
+max_tr_len <- 0.5
+max_yr <- ceiling(max(as.numeric(unlist(strsplit(metadat$timepoints, '-'))), na.rm = TRUE)/365)
+
+metadat_sub <- metadat %>% 
+    filter(aln_ids == id) #%>% 
+  info <- tr %>% 
+    as_tibble() %>%
+    # The sequence headers have seven fields (separated by '+') and they are:
+    # patient_id+hxb2_start+hxb2_end+accession_number+subtype+days-from-infection+days-from-first-sample
+    separate(label, sep = '\\_', remove = FALSE,
+             into = c('patient_id', 'hxb2_start', 'hxb2_end', 'accession_number', 'subtype', 'days_from_infection', 'days_from_first_sample')) %>% 
+    left_join(metadat %>%
+      filter(aln_ids == id) %>%
+      mutate(timepoints = gsub('^-', 'neg', timepoints)) %>%
+      separate_rows(c(timepoints, seq_in_timepoint), sep = '-') %>%
+      separate_rows(seq_in_timepoint, sep = '\\+') %>%
+        mutate(timepoints = as.numeric(gsub('neg', '-', timepoints)),
+               day = case_when(min(timepoints) < 0 ~ round(abs(min(timepoints)) + timepoints),
+                           TRUE ~ round(timepoints)),
+               year = day/365.25) %>%
+      rename(timepoint = timepoints, accession_number = seq_in_timepoint))
+
+  tr_plot <- tr %>% 
+    as_tibble() %>% 
+    left_join(info)  %>% 
+    as.treedata() %>%
+    ggtree() +
+    geom_tippoint(aes(col = year)) +
+    scale_color_viridis_c(option = 'E', begin = 0, end = 1, breaks = breaks_pretty(), limits = c(0, max_yr), direction = -1, na.value = 'white') +
+    labs(col = 'Years\npost-infection', title = id_new) + 
+    coord_cartesian(xlim = c(0, max_tr_len)) +
+    theme(legend.position = 'none')
+  if(id_new == 'F4 (0.2)') tr_plot <- tr_plot + geom_treescale(width = 0.05, offset = 5) #, x = -0.01, y = 200) 
+  tr_plot
+
+})
+names(tr_plots) <- sapply(names(trees_rooted), function(x) id_conversion$id[id_conversion$id_orig == x])
+
+tr_plots <- tr_plots[gsub(' \\(.*', '', id_costs$id_cost)]
+
+plot_grid(
+          plot_grid(tr_plots[[1]], NULL, tr_plots[[2]], NULL, tr_plots[[3]], NULL, tr_plots[[4]], NULL, tr_plots[[5]], NULL, tr_plots[[6]], NULL, tr_plots[[7]],
+          nrow = 1, rel_widths = c(1,-0.3, #P1
+                                   1,-0.6, #P6
+                                   1,-0.6, #F2
+                                   1,-0.7, #P2
+                                   1,-0.6, #P5
+                                   1,-0.6  #P9
+                                           #F1
+                                   )),
+
+plot_grid(tr_plots[[8]], NULL, tr_plots[[9]], NULL, tr_plots[[10]], NULL, tr_plots[[11]], NULL, tr_plots[[12]], NULL, tr_plots[[13]], NULL, NULL, tr_plots[[1]] + theme(legend.position = 'right') + labs(title = ''),
+          nrow = 1, rel_widths = c(
+                                   1,-0.5, #F4
+                                   1,-0.5, #F8
+                                   1,-0.6, #P7
+                                   1,-0.5, #P8
+                                   1,-0.7, #P3
+                                   1,-0.7, #P11
+                                   0, 0.3)), ncol = 1)
+```
+
+### With reference
+
+```{r, trees_ref, fig.width=10, fig.height=5}
+tr_plots <- lapply(names(trees_rooted), function(id){
+  
+  tr <- trees_rooted[[id]]
+  id_new <- id_costs$id_cost[id_costs$id == id_conversion$id[id_conversion$id_orig == id]]
+  if(id_new == 'P5') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization
+
+max_tr_len <- 0.5
+max_yr <- ceiling(max(as.numeric(unlist(strsplit(metadat$timepoints, '-'))), na.rm = TRUE)/365)
+
+metadat_sub <- metadat %>% 
+    filter(aln_ids == id) #%>% 
+  info <- tr %>% 
+    as_tibble() %>%
+    # The sequence headers have seven fields (separated by '+') and they are:
+    # patient_id+hxb2_start+hxb2_end+accession_number+subtype+days-from-infection+days-from-first-sample
+    separate(label, sep = '\\_', remove = FALSE,
+             into = c('patient_id', 'hxb2_start', 'hxb2_end', 'accession_number', 'subtype', 'days_from_infection', 'days_from_first_sample')) %>% 
+    left_join(metadat %>%
+      filter(aln_ids == id) %>%
+      mutate(timepoints = gsub('^-', 'neg', timepoints)) %>%
+      separate_rows(c(timepoints, seq_in_timepoint), sep = '-') %>%
+      separate_rows(seq_in_timepoint, sep = '\\+') %>%
+        mutate(timepoints = as.numeric(gsub('neg', '-', timepoints)),
+               day = case_when(min(timepoints) < 0 ~ round(abs(min(timepoints)) + timepoints),
+                           TRUE ~ round(timepoints)),
+               year = day/365.25) %>%
+      rename(timepoint = timepoints, accession_number = seq_in_timepoint))
+  labs <- c(ifelse(tr$tip.label == "Consensus_Subtype_B", "ref", NA), rep(NA, Nnode(tr)))
+  
+  tr_plot <- tr %>% 
+    as_tibble() %>% 
+    left_join(info)  %>% 
+    as.treedata() %>%
+    ggtree() +
+    geom_tippoint(aes(col = year)) +
+    geom_tiplab(aes(label = labs), vjust = 0.25) + 
+    scale_color_viridis_c(option = 'E', begin = 0, end = 1, breaks = breaks_pretty(), limits = c(0, max_yr), direction = -1, na.value = 'white') +
+    labs(col = 'Years\npost-infection', title = id_new) + 
+    coord_cartesian(xlim = c(0, max_tr_len)) +
+    theme(legend.position = 'none')
+  if(id_new == 'F4 (0.2)') tr_plot <- tr_plot + geom_treescale(width = 0.05, offset = 5) #, x = -0.01, y = 200) 
+  tr_plot
+
+})
+names(tr_plots) <- sapply(names(trees_rooted), function(x) id_conversion$id[id_conversion$id_orig == x])
+
+tr_plots <- tr_plots[gsub(' \\(.*', '', id_costs$id_cost)]
+
+plot_grid(
+          plot_grid(tr_plots[[1]], NULL, tr_plots[[2]], NULL, tr_plots[[3]], NULL, tr_plots[[4]], NULL, tr_plots[[5]], NULL, tr_plots[[6]], NULL, tr_plots[[7]],
+          nrow = 1, rel_widths = c(1,-0.3, #P1
+                                   1,-0.4, #P6
+                                   1,-0.6, #F2
+                                   1,-0.5, #P2
+                                   1,-0.6, #P5
+                                   1,-0.6  #P9
+                                           #F1
+                                   )),
+
+plot_grid(tr_plots[[8]], NULL, tr_plots[[9]], NULL, tr_plots[[10]], NULL, tr_plots[[11]], NULL, tr_plots[[12]], NULL, tr_plots[[13]], NULL, NULL, tr_plots[[1]] + theme(legend.position = 'right') + labs(title = ''),
+          nrow = 1, rel_widths = c(
+                                   1,-0.3, #F4
+                                   1,-0.5, #F8
+                                   1,-0.6, #P7
+                                   1,-0.5, #P8
+                                   1,-0.6, #P3
+                                   1,-0, #P11
+                                   0, 0.4)), ncol = 1)
+```
+
+
+
+
+## Simulations
+
+### Total number of simulations
+
+```{r}
+nrow(errors_summary) # total number of simulations
+```
+
+### Comparison of SSEs and ratios
+
+```{r}
+pvals <- errors_summary %>%
+    filter((immune_cost == 0 |
+            id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.1] & immune_cost == 0.1 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.2] & immune_cost == 0.2 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.3] & immune_cost == 0.3 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.4] & immune_cost == 0.4 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.5] & immune_cost == 0.5) &
+           rep_cost %in% c(0, 0.001)) %>%
+  group_by(id) %>%
+  wilcox_test(err_scaled ~ type, p.adjust.method = 'holm')
+
+best_types <- errors_summary %>%
+      filter((immune_cost == 0 |
+            id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.1] & immune_cost == 0.1 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.2] & immune_cost == 0.2 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.3] & immune_cost == 0.3 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.4] & immune_cost == 0.4 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.5] & immune_cost == 0.5) &
+           rep_cost %in% c(0, 0.001)) %>%
+  group_by(id, type) %>%
+  summarize(mean_err_scaled = mean(err_scaled),
+            median_err_scaled = median(err_scaled)) %>%
+  group_by(id) %>%
+  slice_min(mean_err_scaled) %>%
+  select(id, best_type=type)
+bests <- bind_rows(pvals %>% left_join(best_types) %>%
+                     filter(group1 == best_type | group2 == best_type) %>%
+                     group_by(id) %>% slice_min(p.adj, with_ties = FALSE) %>%
+                   select(id, group1, group2, best_type) %>%
+                     mutate(group1 = ifelse(group1 == best_type, group1, NA),
+                            group2 = ifelse(group2 == best_type, group2, NA)),
+                   pvals %>% left_join(best_types) %>%
+  filter((group1 == best_type | group2 == best_type) & p.adj >= 0.05) %>% #p.adj.signif == 'ns') %>%
+  select(id, group1, group2, best_type)) %>%
+  pivot_longer(c(group1, group2)) %>%
+  drop_na() %>%
+  select(-name) %>%
+  distinct() %>%
+  rename(type = value) %>%
+  mutate(best = 'Yes')
+
+errors_best <- errors_summary %>% 
+  filter((immune_cost == 0 |
+            (id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.1] & immune_cost == 0.1 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.2] & immune_cost == 0.2 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.3] & immune_cost == 0.3 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.4] & immune_cost == 0.4 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.5] & immune_cost == 0.5)) &
+           rep_cost %in% c(0, 0.001)) %>% 
+  group_by(id) %>% 
+  mutate(id_cost = paste0(gsub('\\+.*', '', id), ' (', max(immune_cost), ')')) %>% 
+  left_join(bests) %>% 
+  mutate(best = ifelse(is.na(best), 'No', best),
+         id = factor(id, levels = c('P1', 'P2', 'P3', 'P5', 'P6', 'P7', 'P8', 'P9', 'P11', 'F1', 'F2', 'F4', 'F8'))) %>% 
+  arrange(-immune_cost, id) 
+
+err_summary <- errors_summary %>% 
+  filter((immune_cost == 0 |
+            (id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.1] & immune_cost == 0.1 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.2] & immune_cost == 0.2 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.3] & immune_cost == 0.3 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.4] & immune_cost == 0.4 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.5] & immune_cost == 0.5)) &
+           rep_cost %in% c(0, 0.001)) %>% 
+  
+  group_by(id, immune_cost, rep_cost, cons_cost, type) %>% 
+  summarize(mean_err_scaled = mean(err_scaled))
+  
+err_summary <- err_summary %>% 
+  left_join(err_summary %>% 
+              ungroup() %>% 
+              filter(type == 'All off') %>% 
+              select(-c(type, immune_cost, rep_cost, cons_cost)) %>% 
+              rename(mean_err_scaled_off = mean_err_scaled)) %>% 
+  mutate(ratio = mean_err_scaled_off/mean_err_scaled) %>% 
+  group_by(id) %>% 
+  mutate(id_cost = paste0(id, ' (', immune_cost[immune_cost != 0], ')'))  %>% 
+  mutate(incl_rep = ifelse(grepl('replicative', type, ignore.case = TRUE) | type == 'All on', 'On', 'Off'),
+         incl_imm = ifelse(grepl('immune', type, ignore.case = TRUE) | type == 'All on', 'On', 'Off'),
+         incl_con = ifelse(grepl('conserved', type, ignore.case = TRUE) | type == 'All on', 'On', 'Off'))
+
+sim_summarized <- err_summary %>% 
+  filter(type != 'All off') %>% 
+  pivot_longer(starts_with('incl')) %>% 
+  group_by(id) %>% 
+  mutate(mean_immune = paste0('', max(immune_cost))) %>% 
+  group_by(mean_immune) %>% 
+  mutate(immune_cost_n = paste0(mean_immune, '\n(n=', n_distinct(id), ')')) %>% 
+  ungroup()
+
+pvals2 <- sim_summarized %>% 
+  compare_means(ratio ~ value, data = ., method = 'wilcox', p.adjust.method = 'holm', group.by = c('immune_cost_n', 'name')) %>% 
+  mutate(label = paste0('p = ', p.adj)) %>% 
+  mutate(name = case_when(grepl('con', name) ~ 'Conserved',
+                          grepl('imm', name) ~ 'Immune',
+                          grepl('rep', name) ~ 'Replicative'))
+```
+
+
+```{r sim_summary, fig.width=10, fig.height=6}
+sim_summarized_plot <- sim_summarized %>% 
+  mutate(name = case_when(grepl('con', name) ~ 'Conserved',
+                          grepl('imm', name) ~ 'Immune',
+                          grepl('rep', name) ~ 'Replicative')) %>% 
+  mutate(name = factor(name, levels = c('Immune', 'Replicative', 'Conserved'))) %>% 
+  arrange(name) %>% 
+  left_join(pvals2) %>% 
+  mutate(p_lt_05 = ifelse(p.adj < 0.05, 'Yes', 'No')) %>% 
+  ggplot(aes(x = value, y = ratio, col = p_lt_05)) + #, col = mean_immune)) +
+  facet_grid(immune_cost_n~fct_inorder(name)) + # > 0.2
+  geom_boxplot() +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 1, linetype = 'dotted') +
+  stat_pvalue_manual(pvals2 %>% mutate(y.position = 6.25), label = 'label', bracket.size = 0) +
+  scale_color_grey(start = 0.6, end = 0.3) +
+  coord_cartesian(ylim = c(0,7)) +
+  labs(x = 'Fitness component setting', y = 'Fold improvement in SSE relative to\n\"All off\" setting', col = 'p < 0.05') +
+  theme(legend.position = 'top')
+
+errors_summarized_plot <- errors_best %>% 
+  mutate(yint1 = ifelse(type == 'All off' & round(err_scaled, 7) == 12.9471915, 14, NA),
+         yint2 = ifelse(type == 'All on' & round(err_scaled, 7) == 1.0687142, 50, NA)) %>% 
+  ggplot(aes(x = err_scaled, fill = gsub('.* |\\(|\\)', '', id_cost))) + #, col =
+  facet_grid(fct_reorder(type, err_scaled)~., scales = 'free_x', switch = 'y') +
+  geom_histogram() +
+  scale_fill_grey(start = 0.8, end = 0.1) +
+  scale_x_continuous(breaks = breaks_pretty()) +
+  labs(x = 'Sum of squared errors (SSE)', y = 'Fitness setting', fill = 'Estimated\nimmune cost') +
+  theme(legend.position = 'top',
+        legend.justification = 1,
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        strip.text.y.left = element_text(angle = 0, hjust = 1))
+
+ggarrange(errors_summarized_plot, sim_summarized_plot, widths = c(1.25, 1), labels = 'AUTO')
+```
+
+### Ratios
+
+```{r}
+sim_summarized %>% 
+  group_by(mean_immune > 0.2, name, value) %>% 
+  summarize(median_ratio = median(ratio))
+```
+
+### SSE boxplots
+
+```{r, simulation_errors, fig.width=8, fig.height=8}
+errors_best %>% 
+  ggplot(aes(y = fct_reorder(type, err_scaled, .desc = TRUE), x = err_scaled, col = best)) + #, col =
+  facet_wrap(~fct_inorder(id_cost), scales = 'free_x') +
+  geom_boxplot() +
+  scale_color_grey(start = 0.6, end = 0.3) +
+  scale_x_continuous(breaks = breaks_pretty()) +
+  guides(color = guide_legend(nrow = 1)) +
+  labs(x = 'Sum of squared errors (SSE)', y = 'Fitness setting', col = 'Equivalent to setting with\nlowest mean SSE') +
+  theme(legend.position = c(0.6, 0.1))
+```
+
+
+### Ratio plot
+
+```{r, simulation_errors_ratio, fig.width=8, fig.height=8}
+err_ratios_plot <- err_summary %>%
+  mutate(id = factor(id, levels = c('P1', 'P2', 'P3', 'P5', 'P6', 'P7', 'P8', 'P9', 'P11', 'F1', 'F2', 'F4', 'F8'))) %>% 
+  arrange(-immune_cost, id) %>% 
+  ggplot(aes(y = fct_reorder(type, ratio), x = ratio, label = round(ratio, 1))) +
+  facet_wrap(~fct_inorder(id_cost), scales = 'free_x') +
+  geom_col() +
+  geom_vline(xintercept = 1, col = 'red') +
+  geom_text(hjust = 1, vjust = 0.5, size = 2.5, col = 'white') +
+  labs(x = "Fold improvement in SSE relative to \"All off\" setting", y = 'Fitness setting')
+
+err_ratios_plot
+```
+
+
+### Forward/backward slopes for different fitness costs
+
+```{r, parameter_scan, fig.width=7.5, fig.height=6}
+load('data/summaries/fw_bw_slopes_simulations.RData', verbose = TRUE)
+df <- df %>% 
+  mutate(ic = ifelse(is.na(ic), 'real', ic),
+         rc = ifelse(is.na(rc), 'real', rc),
+         cc = ifelse(is.na(cc), 'real', cc))
+df <- df %>% 
+  select(pid, ic, rc, cc, data_type, run, stat_name=mutation_type, stat_value=slope) %>% 
+  bind_rows(df %>% select(pid, ic, rc, cc, data_type, run, stat_value=trunk_length) %>% mutate(stat_name='trunk_length') %>% distinct())
+
+df %>%
+  left_join(metadat %>% select(pid=aln_ids, aln_length)) %>% 
+  mutate(stat_value = stat_value/aln_length) %>% 
+  pivot_longer(c(ic, rc, cc)) %>%
+  mutate(name = case_when(name == 'cc' ~ 'Conserved\ncost',
+                           name == 'ic' ~ 'Immune\ncost',
+                           name == 'rc' ~ 'Replicative\ncost',
+                           TRUE ~ name),
+         name = ifelse(data_type == 'patient', 'Real', name),
+         name = factor(name, levels = rev(c('Real', 'Conserved\ncost', 'Replicative\ncost', 'Immune\ncost'))),
+         stat_name = case_when(stat_name == 'backward' ~ 'Backward slope',
+                               stat_name == 'forward' ~ 'Forward slope',
+                               stat_name == 'trunk_length' ~ 'Trunk length'),
+         pid = gsub('\\+.*', '', pid)) %>%
+  ggplot(aes(x = value, y = stat_value)) +
+  facet_grid(stat_name~name, scales = 'free', space = 'free_x') +
+  geom_violin(fill = 'grey85', col = 'grey85') + 
+  geom_boxplot(width = 0.3, outliers = FALSE) +
+  labs(x = 'Parameter value', y = 'Summary statistic value', col = 'Patient (mean)') +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### Forward/backward slopes compared to real data
+
+```{r, simulations_compared_to_data, fig.width=7, fig.height=5}
+df_wide <- df %>% 
+  filter(data_type == 'simulation') %>% 
+  select(-data_type) %>% 
+  left_join(df %>% filter(data_type == 'patient') %>% select(pid, stat_name, pstat = stat_value))
+
+df_wide %>%
+  left_join(metadat %>% select(pid=aln_ids, aln_length)) %>% 
+  mutate(stat_value = stat_value/aln_length,
+         pstat = pstat/aln_length) %>% 
+  rename(immune_cost = ic, id_orig = pid, rep_cost=rc) %>% 
+    filter(((id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.1] & immune_cost == 0.1 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.2] & immune_cost == 0.2 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.3] & immune_cost == 0.3 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.4] & immune_cost == 0.4 |
+               id_orig %in% mean_immune$id_orig[mean_immune$mean_immune == 0.5] & immune_cost == 0.5)) &
+           rep_cost %in% c(0, 0.001)) %>% 
+  mutate(stat_name = factor(stat_name, levels = c("backward", "forward", "trunk_length"), labels = c('Backward\nslope', 'Forward\nslope', 'Trunk length'))) %>%
+  left_join(id_conversion) %>% 
+  arrange(immune_cost, id) %>% 
+  ggplot(aes(y = fct_inorder(paste0(id, ' (', immune_cost, ')')), x = stat_value)) +
+  facet_grid(~stat_name, scales = 'free') +
+  geom_violin() +
+  geom_point(aes(x = pstat), col = 'red') +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  labs(y = 'ID', x = 'Summary statistic value')
+```
+
+
+
+## Empirical data analysis
+
+
+```{r}
+load('data/summaries/seqgen_simulations_mutation_map.RData') 
+# load('../../data_code/plot_seqgen_figure/25_mullins_seqgen_simulations_mutation_map.RData')
+# vars2keep<-c('t','cid','br_sum_other','br_sum_backward','br_sum_forward','fjb','prefix','vars2keep')
+# n<-length(vars2keep)
+# listvars<-vector(mode="list",length=n-1)
+# for (i in 1:(n-1)){
+#   listvars[[i]]<-get(vars2keep[i])
+# }
+# save(t, cid, br_sum_other, br_sum_backward, br_sum_forward, fjb, prefix, vars2keep, listvars, file = 'data/summaries/seqgen_simulations_mutation_map.RData')
+load('data/summaries/13_env_mutmap_iqtree.RData')
+utid<-s_df$aln_ids
+nutid<-length(utid)
+tid<-regmatches(prefix,regexpr('[^\\.]+',listvars[[7]]))
+
+plot_mut<-function(br2mut,fjb,t,linecolor,lwd,id){
+  d<-dist.nodes(t)
+  nids_fb<-tail(nodepath(t,from=fjb[1],to=fjb[3]),n=-1)
+  bids_fb<-match(nids_fb,t$edge[,2])
+  
+  nids_fj<-tail(nodepath(t,from=fjb[1],to=fjb[2]),n=-1)
+  bids_fj<-match(nids_fj,t$edge[,2])
+  fj_edges <- t$edge.length[bids_fj]
+  
+  nids_jb<-tail(nodepath(t,from=fjb[2],to=fjb[3]),n=-1)
+  bids_jb<-match(nids_jb,t$edge[,2])
+  jb_edges <- t$edge.length[bids_jb]
+  
+  cs_brlen<-cumsum(t$edge.length[bids_fb])
+  s_br2mut<-br2mut[bids_fb,]
+  s_br2mut<-apply(s_br2mut,2,cumsum)
+  mn_s_br2mut<-apply(s_br2mut,1,median)
+  cs_brlen<-c(0,cs_brlen)
+  mn_s_br2mut<-c(0,mn_s_br2mut)/(s_df$aln_length[s_df$aln_ids == id]) # divide by alignment length to normalize
+  
+  refid <- grep("^Consensus_",t$tip.label)
+  j_anc<-getMRCA(t,c(fjb[3],refid))
+  fj_dist<-vector(mode="numeric",length = 2)
+  fj_dist[1]<-d[fjb[1],j_anc]
+  fj_dist[2]<-d[fjb[1],fjb[2]]
+  
+  tibble(cs_brlen=cs_brlen,mn_s_br2mut=mn_s_br2mut,col=linecolor,lwd = lwd, fj_edges=list(fj_edges), jb_edges=list(jb_edges), fj_dist=fj_dist[1]) # 1 is to node along trunk
+}
+
+plot_dat <- lapply(1:nutid, function(i){
+    tf<-tid==utid[i]
+    ntrees<-sum(tf)
+    idx<-which(tf)
+    sim_dat <- lapply(1:ntrees, function(j){
+      sim_to <- plot_mut(listvars[[5]][[idx[j]]],listvars[[6]][[idx[j]]],listvars[[1]][[idx[j]]],"lightskyblue",0.5,utid[i])
+      sim_away <- plot_mut(listvars[[4]][[idx[j]]],listvars[[6]][[idx[j]]],listvars[[1]][[idx[j]]],"lightpink",0.5,utid[i])
+      bind_rows(sim_to %>% mutate(type = 'sim:to', rep = j), 
+                sim_away %>% mutate(type = 'sim:away', rep = j))
+    }) %>% bind_rows()
+    pat_to <- plot_mut(br_sum_forward[[i]],fjb[[i]],t[[i]],"blue",1,utid[i])
+    pat_away <- plot_mut(br_sum_backward[[i]],fjb[[i]],t[[i]],"red",1,utid[i])
+    pat_other <- plot_mut(br_sum_other[[i]],fjb[[i]],t[[i]],"red",1,utid[i])
+    bind_rows(sim_dat, 
+              pat_to %>% mutate(type = 'pat:to', rep = 1), 
+              pat_away %>% mutate(type = 'pat:away', rep = 1),
+              pat_other %>% mutate(type = 'pat:other', rep = 1)) %>% 
+      mutate(id = gsub('\\+.*', '', utid[i]))
+}) %>% bind_rows() %>% 
+  rename(id_orig = id) %>% 
+  left_join(id_costs %>% mutate(id_orig = gsub('\\+.*', '', id_orig))) %>% 
+  mutate(id = factor(id, levels = c('P1', 'P2', 'P3', 'P5', 'P6', 'P7', 'P8', 'P9', 'P11', 'F1', 'F2', 'F4', 'F8'))) 
+```
+
+### Percentages of each mutation type
+
+```{r}
+plot_dat %>% 
+  filter(grepl('pat', type)) %>% 
+  left_join(id_conversion %>% mutate(id_orig = gsub('\\+.*', '', id_orig))) %>% 
+  left_join(s_df %>% select(id_orig=aln_ids, aln_length) %>% mutate(id_orig = gsub('\\+.*', '', id_orig))) %>% 
+  mutate(mn_s_br2mut_norm = mn_s_br2mut,
+         mn_s_br2mut = mn_s_br2mut*aln_length) %>% 
+  group_by(type, rep, id, id_orig) %>% 
+  slice_max(cs_brlen) %>%
+  distinct() %>% 
+  select(id, id_orig, type, mn_s_br2mut_norm, mn_s_br2mut) %>% 
+  select(id, id_orig, type, mn_s_br2mut) %>% 
+  pivot_wider(names_from = type, values_from = mn_s_br2mut) %>% 
+  ungroup() %>% 
+  select(starts_with('pat')) %>% 
+  pivot_longer(everything()) %>% 
+  group_by(name) %>% 
+  summarize(tot_type = sum(value)) %>% 
+  ungroup() %>% 
+  mutate(pct = round(tot_type/sum(tot_type), 2)*100)
+```
+
+### Forward/backward mutations and pairwise distance over time
+
+```{r, empirical_mutations, fig.width=13, fig.height=10}
+fw_bw_plot <- plot_dat %>% 
+  filter(type != 'pat:other') %>% 
+  left_join(id_conversion) %>% 
+  left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)]))) %>%
+  arrange(id_cost) %>%
+  ggplot(aes(x = cs_brlen, y = mn_s_br2mut, col = type, group = paste(type, rep, id), alpha = grepl('pat', type))) +
+  facet_wrap(~id_cost, nrow = 2, drop = FALSE) +
+  geom_line(data = plot_dat %>% filter(grepl('sim', type)) %>% left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)])))) +
+  geom_line(data = plot_dat %>% filter(grepl('pat', type) & type != 'pat:other') %>% left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)])))) +
+  geom_vline(data = plot_dat %>% filter(grepl('pat', type)) %>% left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)]))) %>% select(id_cost, fj_dist) %>% distinct(), aes(xintercept = fj_dist, linetype = 'Reference\nposition')) + 
+  scale_linetype_manual(values = c('dotted')) +
+  scale_color_manual(values = c('red', 'blue', 'lightpink', 'lightskyblue'), 
+                     labels = c('Real: backward', 'Real: forward', 'Sim: backward', 'Sim: forward')) +
+  guides(alpha = 'none') + 
+  labs(x = 'Trunk length (subst/site)', y = 'Mutations per site', col = 'Mutation type', linetype = '') +
+  theme(legend.position = c(0.935 , 0.85), 
+        legend.box.background = element_rect(fill = 'white', color = 'white'),
+        legend.box.margin = margin(0,10,0,2),
+        aspect.ratio = 1)
+
+
+ seqs_in_timepoints <- metadat %>% 
+   select(aln_ids, timepoints, seq_in_timepoint) %>% 
+   separate_rows(c(timepoints, seq_in_timepoint), sep = "(?<!^)-", convert = TRUE) %>%  # ignore dashes at beginning of row (negative lookbehind) 
+   separate_rows(seq_in_timepoint)
+
+dists <- lapply(trees_rooted, function(x){
+  d <- cophenetic.phylo(x)
+  d <- d["Consensus_Subtype_B",colnames(d) != "Consensus_Subtype_B"]
+names(d) <- sapply(strsplit(names(d), '_'), function(x) x[4])
+d %>% enframe()
+}) %>% bind_rows()
+
+pwd_dat <- seqs_in_timepoints %>% 
+  rename(id_orig = aln_ids, name = seq_in_timepoint) %>% 
+  left_join(dists) %>% 
+  drop_na() %>% 
+  left_join(id_conversion) %>% 
+  left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)]))) %>% 
+  arrange(id_cost) %>% 
+  mutate(censored = id == 'P2' & timepoints > 3000)
+
+pw_dists_ref <- pwd_dat %>% 
+  ggplot(aes(x = timepoints/365, y = value, shape = censored)) +
+  facet_wrap(~id_cost, nrow = 2, drop = FALSE) +
+  geom_point(alpha = 0.25, col = 'grey', show.legend = FALSE) +
+  scale_shape_manual(values = c(19, 1)) +
+  geom_smooth(data = pwd_dat %>% filter(!censored), method = 'loess', se = FALSE, color = 'grey20') +
+  geom_vline(data = seqs_in_timepoints %>% 
+  rename(id_orig = aln_ids, name = seq_in_timepoint) %>% 
+  left_join(dists) %>% 
+  drop_na() %>% 
+  group_by(id_orig) %>% 
+  slice_min(value) %>% 
+    slice_min(timepoints) %>% 
+  mutate(name = 'ref') %>% 
+    left_join(id_conversion) %>% 
+    left_join(id_costs) %>%
+  mutate(id_cost = factor(id_cost, levels = c(id_costs$id_cost[1:6], '', id_costs$id_cost[7:length(id_costs$id_cost)]))) %>% 
+  select(id_cost, timepoints, name), 
+  aes(xintercept = timepoints/365, linetype = 'Timepoint of\nnearest neighbor\nto reference')) + 
+  
+  scale_linetype_manual(values = c('dotted')) +
+  theme(aspect.ratio = 1,
+        legend.position = c(0.935 , 0.85), 
+        legend.box.background = element_rect(fill = 'white', color = 'white'),
+        legend.box.margin = margin(55,0,40,2),) +
+  labs(x = 'Years post-infection', y = 'Pairwise distance\nto reference', linetype = '')
+
+ggarrange(fw_bw_plot, pw_dists_ref, ncol = 1, labels = 'AUTO')
+```
+
+
+
+
+
+## Fitness
+
+```{r}
+counts <- read_csv('data/summaries/counts.csv') %>% 
+  rename(path = './output/10137+1+B/simulations/10137+1+B_maxepi0.0_repcost0_conscost0.99_run1_rep0_counts.csv') %>% 
+  separate(path, into = c('id', 'maxepi', 'repcost', 'conscost', 'run', 'rep', 'fitness'), sep = '_') %>% 
+  mutate(id = gsub('./', '', id),
+         maxepi = as.numeric(gsub('maxepi', '', maxepi)),
+         repcost = as.numeric(gsub('repcost', '', repcost)),
+         conscost = as.numeric(gsub('conscost', '', conscost)),
+         run = as.numeric(gsub('run', '', run)),
+         rep = as.numeric(gsub('rep', '', rep)),
+         generation = as.numeric(generation),
+         mean_immune = as.numeric(mean_immune_active),
+         mean_conserved = as.numeric(mean_conserved_active),
+         mean_replicative = as.numeric(mean_replicative_active),
+         mean_overall = as.numeric(mean_fitness_active)) %>% 
+  select(-fitness) %>% 
+  drop_na() # many headers in file because of concatenating different simulation outputs together
+```
+
+### Mean overall fitness
+
+```{r, fitness, fig.width=10, fig.height=4}
+counts %>% 
+  group_by(maxepi, conscost, repcost) %>% 
+  mutate(mean_overall = ifelse(all(mean_overall == 1) & row_number() == 1, 0.99, mean_overall)) %>% # hack to get smoothed lines to show when all values are 1
+  ggplot(aes(x = generation/365, y = mean_overall, col = factor(maxepi), shape = factor(conscost))) +
+  facet_grid(~paste(repcost)) +
+  geom_smooth(aes(linetype = factor(conscost)), se = FALSE) +
+  scale_color_viridis_d() +
+  scale_shape_manual(values = c(1, 19)) +
+  scale_x_continuous(breaks = breaks_pretty()) +
+  labs(x = 'Years post-infection', y = 'Mean\noverall fitness', col = 'Immune\ncost', linetype = 'Conserved\ncost') +
+  guides(linetype = guide_legend(override.aes = list(col = 'black'))) +
+  coord_fixed(ratio = 12, ylim = c(0, 1)) +
+  theme(legend.position = 'bottom', 
+        strip.placement = "outside",
+        legend.title = element_text(hjust = 1)) 
+```
+
+### Mean fitness for different fitness components
+
+```{r, fitness_supp, fig.width=10, fig.height=5}
+counts %>% 
+  select(-mean_overall) %>% 
+  pivot_longer(c(mean_immune, mean_conserved, mean_replicative)) %>% 
+  mutate(name = factor(name, levels = c('mean_overall', 'mean_immune', 'mean_replicative', 'mean_conserved'),
+                       labels = c('Overall', 'Immune', 'Replicative', 'Conserved'))) %>% 
+  group_by(name, maxepi, conscost, repcost) %>% 
+  mutate(value = ifelse(all(value == 1) & row_number() == 1, 0.99, value)) %>% # hack to get smoothed lines to show when all values are 1
+  ggplot(aes(x = generation/365, y = value, col = factor(maxepi), shape = factor(conscost))) +
+  facet_grid(name~paste(repcost), switch = 'y') +
+  geom_smooth(aes(linetype = factor(conscost)), se = FALSE) +
+  scale_color_viridis_d() +
+  scale_shape_manual(values = c(1, 19)) +
+  scale_x_continuous(breaks = breaks_pretty()) +
+  labs(x = 'Years post-infection', y = 'Mean fitness', col = 'Immune\ncost', linetype = 'Conserved\ncost') +
+  guides(linetype = guide_legend(override.aes = list(col = 'black'))) +
+  coord_cartesian(ylim = c(0, 1)) +
+  theme(strip.placement = "outside") 
+```
+
+
+
+
+
+
+
