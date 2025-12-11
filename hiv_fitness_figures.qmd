@@ -386,13 +386,13 @@ tr_plots <- lapply(names(trees_rooted), function(id){
   
   tr <- drop.tip(trees_rooted[[id]], "Consensus_Subtype_B")
   id_new <- id_costs$id_cost[id_costs$id == id_conversion$id[id_conversion$id_orig == id]]
-  if(id_new == 'P5') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization
+  if(id_new == 'P5 (0.3)') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization (from first timepoint)
 
 max_tr_len <- 0.5
 max_yr <- ceiling(max(as.numeric(unlist(strsplit(metadat$timepoints, '-'))), na.rm = TRUE)/365)
 
 metadat_sub <- metadat %>% 
-    filter(aln_ids == id) #%>% 
+    filter(aln_ids == id) 
   info <- tr %>% 
     as_tibble() %>%
     # The sequence headers have seven fields (separated by '+') and they are:
@@ -457,7 +457,7 @@ tr_plots <- lapply(names(trees_rooted), function(id){
   
   tr <- trees_rooted[[id]]
   id_new <- id_costs$id_cost[id_costs$id == id_conversion$id[id_conversion$id_orig == id]]
-  if(id_new == 'P5') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization
+  if(id_new == 'P5 (0.3)') tr <- root(tr, tr$tip.label[grepl('AF138013', tr$tip.label)]) # for visualization
 
 max_tr_len <- 0.5
 max_yr <- ceiling(max(as.numeric(unlist(strsplit(metadat$timepoints, '-'))), na.rm = TRUE)/365)
