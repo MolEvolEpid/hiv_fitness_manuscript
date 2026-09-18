@@ -62,50 +62,8 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
-<section id="methods" class="level1">
-<h1>Methods</h1>
-<section id="methods-figure" class="level2">
-<h2 class="anchored" data-anchor-id="methods-figure">Methods figure</h2>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/methods-1.png" class="img-fluid figure-img" width="1248"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-</section>
 <section id="results" class="level1">
 <h1>Results</h1>
-<section id="phylogenies" class="level2">
-<h2 class="anchored" data-anchor-id="phylogenies">Phylogenies</h2>
-<section id="without-reference" class="level3">
-<h3 class="anchored" data-anchor-id="without-reference">Without reference</h3>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/trees_no_ref-1.png" class="img-fluid figure-img" width="960"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="with-reference" class="level3">
-<h3 class="anchored" data-anchor-id="with-reference">With reference</h3>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/trees_ref-1.png" class="img-fluid figure-img" width="960"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-</section>
 <section id="simulations" class="level2">
 <h2 class="anchored" data-anchor-id="simulations">Simulations</h2>
 <section id="total-number-of-simulations" class="level3">
@@ -116,143 +74,166 @@ ul.task-list li input[type="checkbox"] {
 </div>
 </div>
 </section>
-<section id="comparison-of-sses-and-ratios" class="level3">
-<h3 class="anchored" data-anchor-id="comparison-of-sses-and-ratios">Comparison of SSEs and ratios</h3>
+<section id="distance-to-reference" class="level3">
+<h3 class="anchored" data-anchor-id="distance-to-reference">Distance to reference</h3>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/sim_summary-1.png" class="img-fluid figure-img" width="960"></p>
+<p><img src="hiv_fitness_figures_files/figure-html/dist_to_ref_sim-1.png" class="img-fluid figure-img" width="3000"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="hiv_fitness_figures_files/figure-html/dist_to_ref_sim_supp-1.png" class="img-fluid figure-img" width="3000"></p>
 </figure>
 </div>
 </div>
 </div>
 </section>
-<section id="ratios" class="level3">
-<h3 class="anchored" data-anchor-id="ratios">Ratios</h3>
+</section>
+<section id="fitness-vs.-distance-to-reference" class="level2">
+<h2 class="anchored" data-anchor-id="fitness-vs.-distance-to-reference">Fitness vs.&nbsp;distance to reference</h2>
+<div class="cell">
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="hiv_fitness_figures_files/figure-html/consensus_fitness-1.png" class="img-fluid figure-img" width="2100"></p>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="within-host-data" class="level2">
+<h2 class="anchored" data-anchor-id="within-host-data">Within-host data</h2>
+<section id="distance-to-reference-over-time" class="level3">
+<h3 class="anchored" data-anchor-id="distance-to-reference-over-time">Distance to reference over time</h3>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 12 × 4
-# Groups:   mean_immune &gt; 0.2, name [6]
-   `mean_immune &gt; 0.2` name     value median_ratio
-   &lt;lgl&gt;               &lt;chr&gt;    &lt;chr&gt;        &lt;dbl&gt;
- 1 FALSE               incl_con Off           2.19
- 2 FALSE               incl_con On            2.37
- 3 FALSE               incl_imm Off           2.65
- 4 FALSE               incl_imm On            2.07
- 5 FALSE               incl_rep Off           1.59
- 6 FALSE               incl_rep On            3.13
- 7 TRUE                incl_con Off           2.28
- 8 TRUE                incl_con On            2.34
- 9 TRUE                incl_imm Off           1.74
-10 TRUE                incl_imm On            3.24
-11 TRUE                incl_rep Off           2.25
-12 TRUE                incl_rep On            2.38</code></pre>
+<pre><code># A tibble: 2,334 × 6
+# Groups:   id [13]
+   id      gen   dist mean_dist min_gen censored
+   &lt;fct&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;   &lt;dbl&gt; &lt;lgl&gt;   
+ 1 P3     2768 0.0974    0.0928     122 FALSE   
+ 2 P3     2768 0.0838    0.0928     122 FALSE   
+ 3 P3     2768 0.0838    0.0928     122 FALSE   
+ 4 P3     2768 0.0889    0.0928     122 FALSE   
+ 5 P3     2768 0.0906    0.0928     122 FALSE   
+ 6 P3     2768 0.0889    0.0928     122 FALSE   
+ 7 P3     2768 0.0906    0.0928     122 FALSE   
+ 8 P3     2768 0.0940    0.0928     122 FALSE   
+ 9 P3     2768 0.0957    0.0928     122 FALSE   
+10 P3     2768 0.112     0.0928     122 FALSE   
+# ℹ 2,324 more rows</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 3
+  mean_slope min_slope max_slope
+       &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;
+1    0.00277  0.000277   0.00529</code></pre>
 </div>
 </div>
-</section>
-<section id="sse-boxplots" class="level3">
-<h3 class="anchored" data-anchor-id="sse-boxplots">SSE boxplots</h3>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/simulation_errors-1.png" class="img-fluid figure-img" width="768"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="ratio-plot" class="level3">
-<h3 class="anchored" data-anchor-id="ratio-plot">Ratio plot</h3>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/simulation_errors_ratio-1.png" class="img-fluid figure-img" width="768"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-<section id="forwardbackward-slopes-for-different-fitness-costs" class="level3">
-<h3 class="anchored" data-anchor-id="forwardbackward-slopes-for-different-fitness-costs">Forward/backward slopes for different fitness costs</h3>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code>Loading objects:
-  df</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/parameter_scan-1.png" class="img-fluid figure-img" width="720"></p>
-</figure>
+<pre><code># A tibble: 1 × 3
+  mean_dist min_dist max_dist
+      &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
+1    0.0919   0.0522    0.145</code></pre>
 </div>
 </div>
-</div>
-</section>
-<section id="forwardbackward-slopes-compared-to-real-data" class="level3">
-<h3 class="anchored" data-anchor-id="forwardbackward-slopes-compared-to-real-data">Forward/backward slopes compared to real data</h3>
-<div class="cell">
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/simulations_compared_to_data-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-</div>
-</section>
-</section>
-<section id="empirical-data-analysis" class="level2">
-<h2 class="anchored" data-anchor-id="empirical-data-analysis">Empirical data analysis</h2>
-<section id="percentages-of-each-mutation-type" class="level3">
-<h3 class="anchored" data-anchor-id="percentages-of-each-mutation-type">Percentages of each mutation type</h3>
 <div class="cell">
 <div class="cell-output cell-output-stdout">
-<pre><code># A tibble: 3 × 3
-  name      tot_type   pct
-  &lt;chr&gt;        &lt;dbl&gt; &lt;dbl&gt;
-1 pat:away      645     57
-2 pat:other      84      7
-3 pat:to        404.    36</code></pre>
+<pre><code># A tibble: 20 × 10
+   id    .y.   group1 group2       n1    n2 statistic        p    p.adj
+ * &lt;fct&gt; &lt;chr&gt; &lt;chr&gt;  &lt;chr&gt;     &lt;int&gt; &lt;int&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;
+ 1 P1    dist  min    max_right     7   130      64.5 6.84e- 5 6.84e- 5
+ 2 P2    dist  min    max_left     11    21      64.5 1.9 e- 2 1.9 e- 2
+ 3 P2    dist  min    max_right    11   157     189   7.72e- 6 1.54e- 5
+ 4 P3    dist  min    max_right    10   120      78.5 2.62e- 6 2.62e- 6
+ 5 P5    dist  min    max_left     10    65     202.  2.7 e- 2 2.7 e- 2
+ 6 P5    dist  min    max_right    10   161     110.  2.40e- 6 4.80e- 6
+ 7 P6    dist  min    max_left     19    60     387   1.7 e- 2 1.7 e- 2
+ 8 P6    dist  min    max_right    19    51     238   5.69e- 4 1   e- 3
+ 9 P7    dist  min    max_left     12    19      39.5 1   e- 3 1   e- 3
+10 P7    dist  min    max_right    12   176      87.5 5.52e- 8 1.10e- 7
+11 P8    dist  min    max_left     10     7      46   8.71e- 1 8.71e- 1
+12 P8    dist  min    max_right    10   184      17   8.92e- 8 1.78e- 7
+13 P9    dist  min    max_right    10   111      83   4.52e- 6 4.52e- 6
+14 P11   dist  min    max_right     6    46      22.5 4.82e- 4 4.82e- 4
+15 F1    dist  min    max_left     21    45     300   9   e- 3 9   e- 3
+16 F1    dist  min    max_right    21   209     430.  6.45e-10 1.29e- 9
+17 F2    dist  min    max_left     24    48     380   9   e- 3 9   e- 3
+18 F2    dist  min    max_right    24   138     247   1.55e-11 3.10e-11
+19 F4    dist  min    max_right     5   192      50   3.21e- 4 3.21e- 4
+20 F8    dist  min    max_right    20   170       5.5 1.64e-13 1.64e-13
+# ℹ 1 more variable: p.adj.signif &lt;chr&gt;</code></pre>
 </div>
 </div>
-</section>
-<section id="forwardbackward-mutations-and-pairwise-distance-over-time" class="level3">
-<h3 class="anchored" data-anchor-id="forwardbackward-mutations-and-pairwise-distance-over-time">Forward/backward mutations and pairwise distance over time</h3>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/empirical_mutations-1.png" class="img-fluid figure-img" width="1248"></p>
+<p><img src="hiv_fitness_figures_files/figure-html/dist_to_ref_real-1.png" class="img-fluid figure-img" width="3000"></p>
 </figure>
 </div>
 </div>
 </div>
 </section>
-</section>
-<section id="fitness" class="level2">
-<h2 class="anchored" data-anchor-id="fitness">Fitness</h2>
-<section id="mean-overall-fitness" class="level3">
-<h3 class="anchored" data-anchor-id="mean-overall-fitness">Mean overall fitness</h3>
+<section id="phylogenies-with-reference" class="level3">
+<h3 class="anchored" data-anchor-id="phylogenies-with-reference">Phylogenies with reference</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 13 × 6
+   id        n  mean_fj   sd_fj  min_fj max_fj
+   &lt;fct&gt; &lt;int&gt;    &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;
+ 1 P1     1000 0.0318   0.0166  0       0.0819
+ 2 P2     1000 0.0240   0.0239  0       0.135 
+ 3 P3     1000 0.00465  0.00438 0       0.0416
+ 4 P5     1000 0.00163  0.00601 0       0.0520
+ 5 P6     1000 0.0692   0.0447  0       0.195 
+ 6 P7     1000 0.0204   0.00757 0.00181 0.0596
+ 7 P8     1000 0.00753  0.00804 0       0.0532
+ 8 P9     1000 0.00522  0.00671 0       0.0506
+ 9 P11    1000 0.00117  0.00644 0       0.0606
+10 F1     1000 0.0688   0.0414  0.00273 0.258 
+11 F2     1000 0.0285   0.00747 0.0108  0.0584
+12 F4     1000 0.0237   0.0245  0       0.200 
+13 F8     1000 0.000691 0.00513 0       0.0528</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code># A tibble: 1 × 2
+  mean_mean mean_sd
+      &lt;dbl&gt;   &lt;dbl&gt;
+1    0.0221  0.0156</code></pre>
+</div>
+</div>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/fitness-1.png" class="img-fluid figure-img" width="960"></p>
+<p><img src="hiv_fitness_figures_files/figure-html/phylogenies-1.png" class="img-fluid figure-img" width="3900"></p>
 </figure>
 </div>
 </div>
 </div>
-</section>
-<section id="mean-fitness-for-different-fitness-components" class="level3">
-<h3 class="anchored" data-anchor-id="mean-fitness-for-different-fitness-components">Mean fitness for different fitness components</h3>
+<div class="cell">
+<div class="cell-output cell-output-stdout">
+<pre><code>      95% 
+0.1265519 </code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.145</code></pre>
+</div>
+</div>
 <div class="cell">
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="hiv_fitness_figures_files/figure-html/fitness_supp-1.png" class="img-fluid figure-img" width="960"></p>
+<p><img src="hiv_fitness_figures_files/figure-html/ref_dist_max-1.png" class="img-fluid figure-img" width="3000"></p>
 </figure>
 </div>
 </div>
